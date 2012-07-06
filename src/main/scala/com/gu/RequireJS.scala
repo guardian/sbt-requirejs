@@ -2,8 +2,10 @@ package com.gu
 
 import java.io.File
 import sbt._
+import sbt.Keys._
 import org.mozilla.javascript.tools.shell.Main
 import io.Source
+import com.codahale.jerkson.Json._
 
 object RequireJS extends Plugin {
 
@@ -27,28 +29,22 @@ object RequireJS extends Plugin {
     rjsFile
   }
 
-  def requireJsCompiler = (requireJsRJSFile, requireJsAppDir, requireJsDir, requireJsBaseUrl, requireJsModules) map { (rjsFile, appDir, dir, baseUrl, modules) =>
+  private case class Module(name: String)
+  private case class RequireJsConfig(baseUrl: String, appDir: String, dir: String, modules: Seq[Module])
 
-    val moduleArgs = modules.map(m => """{name:"%s"}""".format(m)).mkString(",")
+  def requireJsCompiler = (requireJsRJSFile, requireJsAppDir, requireJsDir, requireJsBaseUrl, requireJsModules, streams) map {
+    (rjsFile, appDir, dir, baseUrl, modules, s) =>
+      import s.log
 
-    val config =
-      """
-        ({
-         baseUrl: "%s",
-         appDir: "%s",
-         dir: "%s",
-         modules:[
-          %s
-         ]
-        })
-      """ format (baseUrl, appDir, dir, moduleArgs)
+      //using the file based config, as the arguments based config does not seem to support multiple modules...
+      val config = generate(RequireJsConfig(baseUrl, appDir.getAbsolutePath, dir.getAbsolutePath, modules.map(Module(_))))
+      log.info("Running requirejs optimization with config: " + config)
 
+      val configFile = IO.createTemporaryDirectory / "config.js"
+      IO.write(configFile, config)
 
-    val configFile = IO.createTemporaryDirectory / "config.js"
-    IO.write(configFile, config)
-
-    //Main.main(Array(rjsFile.getAbsolutePath, "-o", "baseUrl=" + baseUrl, "appDir=" + appDir, "dir=" + dir, "modules=name:'main',name:'after'"))
-    Main.main(Array(rjsFile.getAbsolutePath, "-o", configFile.getAbsolutePath))
-    Seq.empty[File]
+      //Main.main(Array(rjsFile.getAbsolutePath, "-o", "baseUrl=" + baseUrl, "appDir=" + appDir, "dir=" + dir, "modules=name:'main',name:'after'"))
+      Main.main(Array(rjsFile.getAbsolutePath, "-o", configFile.getAbsolutePath))
+      Seq.empty[File]
   }
 }
