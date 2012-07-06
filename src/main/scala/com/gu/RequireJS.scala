@@ -2,60 +2,53 @@ package com.gu
 
 import java.io.File
 import sbt._
-import org.mozilla.javascript.tools.jsc.Main
+import org.mozilla.javascript.tools.shell.Main
+import io.Source
 
 object RequireJS extends Plugin {
 
-  val requireJsConfig = SettingKey[File]("require-js-config", "The configuration file for requireJS")
   val requireJsAppDir = SettingKey[File]("require-js-app-dir", "The location of the javascript you want to optimize")
   val requireJsDir = SettingKey[File]("require-js-dir", "The location you want the javascript optimized to")
   val requireJsBaseUrl = SettingKey[String]("require-js-base-url", "The base url of requireJs modules")
 
+  val requireJsRJSFile = SettingKey[File]("require-js-rjs-file", "The r.js file that is used to compile requirejs files")
+
+  val requireJsModules = SettingKey[Seq[String]]("require-js-modules", "The requireJs entry modules (usually main - for main.js)")
+
 
   val requireJsSettings = Seq[Project.Setting[_]](
-    requireJsConfig <<= createDefaultConfig()
+    requireJsRJSFile := writeRJSFile
   )
 
-  private def createDefaultConfig() = (requireJsAppDir, requireJsDir, requireJsBaseUrl) { (appDir, dir, baseUrl) =>
+  private def writeRJSFile = {
+    val rjsFile = IO.createTemporaryDirectory / "r.js"
+    val rjs = Source.fromInputStream(getClass.getClassLoader.getResourceAsStream("r.js")).mkString
+    IO.write(rjsFile, rjs)
+    rjsFile
+  }
 
-    val configFile = IO.createTemporaryDirectory / "build.js"
+  def requireJsCompiler = (requireJsRJSFile, requireJsAppDir, requireJsDir, requireJsBaseUrl, requireJsModules) map { (rjsFile, appDir, dir, baseUrl, modules) =>
 
-    //for definition of config file see...
-    // http://requirejs.org/docs/optimization.html#wholeproject
-
-    //    appDir    the raw source
-    //    dir       where I want files copied to - resource generated
-    //    baseUrl (relative to appdir) where your modules are located
-
+    val moduleArgs = modules.map(m => """{name:"%s"}""".format(m)).mkString(",")
 
     val config =
-      """({
-            appDir: "%s",
-            baseUrl: "%s",
-            dir: "%s",
-            out: "main-built.js",
-            modules: [
-                {
-                    name: "main"
-                }
-            ]
-        })"""  format (appDir, baseUrl, dir)
+      """
+        ({
+         baseUrl: "%s",
+         appDir: "%s",
+         dir: "%s",
+         modules:[
+          %s
+         ]
+        })
+      """ format (baseUrl, appDir, dir, moduleArgs)
 
 
+    val configFile = IO.createTemporaryDirectory / "config.js"
     IO.write(configFile, config)
-    configFile
-  }
 
-  def requireJsCompiler = (requireJsAppDir, requireJsDir, requireJsBaseUrl, requireJsConfig) map { (appDir, dir, baseUrl, config) =>
-
-    println(appDir + "  " + dir + "  " + baseUrl)
-
-    //Main.main(Array("/home/gklopper/tools/r.js", "-o", config.getAbsolutePath))
-
-    Main.main(Array("/home/gklopper/tools/r.js", config.getAbsolutePath))
-    //Main.main(Array("/home/gklopper/tools/r.js", "-o baseUrl=" + baseUrl + " appDir=" + appDir +" dir=" + dir))
-
+    //Main.main(Array(rjsFile.getAbsolutePath, "-o", "baseUrl=" + baseUrl, "appDir=" + appDir, "dir=" + dir, "modules=name:'main',name:'after'"))
+    Main.main(Array(rjsFile.getAbsolutePath, "-o", configFile.getAbsolutePath))
     Seq.empty[File]
   }
-
 }
