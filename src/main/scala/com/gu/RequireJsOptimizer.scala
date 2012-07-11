@@ -4,6 +4,7 @@ import sbt._
 import io.Source
 import org.mozilla.javascript.tools.shell.{Global, ShellContextFactory, Main}
 import com.codahale.jerkson.Json._
+import java.util
 
 case class Module(name: String)
 
@@ -36,6 +37,7 @@ object RequireJsOptimizer {
       //I found this out by trial and error
       Main.shellContextFactory = new ShellContextFactory()
       Main.global = new Global()
+      clearFileList()
 
       val result = Main.exec(Array(rjsFile.getAbsolutePath, "-o", configFile.getAbsolutePath))
 
@@ -49,6 +51,15 @@ object RequireJsOptimizer {
       val optimizedFiles = (allJsFiles x rebase(file(config.appDir), destination)) map (_._2)
       optimizedFiles
     }
+  }
+
+
+  private def clearFileList() {
+    //due to the way we are calling this, it adds a null to the list each time.
+    //this is the only way I found to clear the list
+    val fileList = classOf[Main].getDeclaredField("fileList")
+    fileList.setAccessible(true)
+    fileList.set(null, new util.ArrayList[String]())
   }
 
   private def time[A](block: => A)(implicit log: Logger): A = {
