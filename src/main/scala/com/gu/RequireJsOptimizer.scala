@@ -8,7 +8,7 @@ import java.util
 
 case class Module(name: String)
 
-case class RequireJsConfig(baseUrl: String, appDir: String, dir: String, modules: Seq[Module],
+case class RequireJsConfig(baseUrl: String, appDir: String, dir: String, paths: Map[String, String], modules: Seq[Module],
                            // to turn off optimization use optimize=Some("none")    - yeah, I know
                            optimize: Option[String])
 
