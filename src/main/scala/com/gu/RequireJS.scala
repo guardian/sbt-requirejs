@@ -14,15 +14,16 @@ object RequireJS extends Plugin {
   //val requireJsRJSFile = SettingKey[File]("require-js-rjs-file", "The r.js file that is used to compile requirejs files")
 
   val requireJsModules = SettingKey[Seq[String]]("require-js-modules", "The requireJs entry modules (usually main - for main.js)")
+  val requireJsPaths = SettingKey[Map[String, String]]("require-js-paths", "The requireJS paths mapping (Eg, 'bonzo' -> 'vendor/bonzo-v1.0.1'")
 
-  def requireJsCompiler = (requireJsOptimize, requireJsAppDir, requireJsDir, requireJsBaseUrl, requireJsModules, streams) map {
-    (optimize, appDir, dir, baseUrl, modules, s) =>
+  def requireJsCompiler = (requireJsOptimize, requireJsAppDir, requireJsDir, requireJsBaseUrl, requireJsPaths, requireJsModules, streams) map {
+    (optimize, appDir, dir, baseUrl, paths, modules, s) =>
       implicit val log = s.log
 
       val optimizeOpt = if (optimize) None else Some("none")
 
       val config = RequireJsConfig(baseUrl, appDir.getAbsolutePath,
-        dir.getAbsolutePath, modules.map(Module(_)), optimizeOpt)
+        dir.getAbsolutePath, paths, modules.map(Module(_)), optimizeOpt)
 
       RequireJsOptimizer.optimize(config)
   }
