@@ -8,10 +8,13 @@ import java.util
 
 case class Module(name: String)
 
-case class RequireJsConfig(baseUrl: String, appDir: String, dir: String, paths: Map[String, String], modules: Seq[Module],
+case class RequireJsConfig(baseUrl: String,
+                           appDir: String,
+                           dir: String,
+                           paths: Map[String, String],
+                           modules: Seq[Module],
                            // to turn off optimization use optimize=Some("none")    - yeah, I know
                            optimize: Option[String])
-
 
 object RequireJsOptimizer {
 
@@ -41,7 +44,8 @@ object RequireJsOptimizer {
 
       val result = Main.exec(Array(rjsFile.getAbsolutePath, "-o", configFile.getAbsolutePath))
 
-      //TODO find a case where this happens and figure out what to do about it
+      //have not actually been able to get this to return anything other than 0
+      //even when I know there are errors.
       if (result != 0) {
         System.exit(result)
       }
