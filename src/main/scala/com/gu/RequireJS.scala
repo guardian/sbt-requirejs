@@ -26,6 +26,12 @@ object RequireJS extends Plugin {
     (optimize, appDir, dir, baseUrl, paths, modules, s, cacheDir) =>
       implicit val log = s.log
 
+      //we cannot write directly to resources dir as the optimizer deletes everything in there
+      //and not only these files are in there
+      val tmpDir = IO.createTemporaryDirectory
+
+      tmpDir.deleteOnExit()
+
       val optimizeOpt = if (optimize) None else Some("none")
 
       if (!cacheDir.exists) {
@@ -39,32 +45,43 @@ object RequireJS extends Plugin {
 
 
       val config = RequireJsConfig(baseUrl, appDir.getAbsolutePath,
-        dir.getAbsolutePath, paths, modules.map(Module(_)), optimizeOpt)
+        tmpDir.getAbsolutePath, paths, modules.map(Module(_)), optimizeOpt)
 
       if (canSkipCompile(sourceFileDetails, cacheFileDetails)) {
         log.info("Skipping javascript file optimization")
 
         //we still need to return the list of expected files for SBT to work
-        sourceFileDetails.map{ case (path, _) => path}.map(dir / _).toSeq
+        sourceFileDetails.map{ case (path, _) => (dir / path)}.toSeq
+
       } else {
         log.info("Optimizing javascript files")
 
-        //clear out both destination directories
-        // before we start
-        (cacheDir ** "**").get.foreach{ fileInCacheDir =>
-          fileInCacheDir.relativeTo(cacheDir).foreach{ path =>
-            (dir / path.getPath).delete()
-          }
-          fileInCacheDir.delete
-        }
+        //clear out both destination directories before we start
+        clearCachedFiles(cacheDir, dir)
 
         val optimizedFiles = RequireJsOptimizer.optimize(config)
+
+        //copy files to resources dir
+        IO.copyDirectory(tmpDir, dir, overwrite = true, preserveLastModified = false)
 
         //copy files to cache dir so we can check against them later for changes
         IO.copyDirectory(appDir, cacheDir, preserveLastModified = false)
 
-        optimizedFiles
+
+        optimizedFiles.flatMap(_.rebase(tmpDir, dir))
       }
+  }
+
+
+  private def clearCachedFiles(cacheDir: Types.Id[File], dir: Types.Id[File]) {
+    (cacheDir ** "**").get.foreach {
+      fileInCacheDir =>
+        fileInCacheDir.relativeTo(cacheDir).foreach {
+          path =>
+            (dir / path.getPath).delete()
+        }
+        fileInCacheDir.delete
+    }
   }
 
   private def fileDetails(dir: File) = {
