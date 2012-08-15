@@ -51,8 +51,12 @@ object RequireJS extends Plugin {
 
         //clear out both destination directories
         // before we start
-        (cacheDir ** "**").get.foreach(_.delete)
-        (dir ** "*.js").get.foreach(_.delete)
+        (cacheDir ** "**").get.foreach{ fileInCacheDir =>
+          fileInCacheDir.relativeTo(cacheDir).foreach{ path =>
+            (dir / path.getPath).delete()
+          }
+          fileInCacheDir.delete
+        }
 
         val optimizedFiles = RequireJsOptimizer.optimize(config)
 
