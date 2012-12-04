@@ -85,7 +85,7 @@ object RequireJS extends Plugin {
   }
 
   private def fileDetails(dir: File) = {
-      (dir ** "**").get.filterNot(_.isDirectory).map{f =>
+      (dir ** "**").get.filterNot(_.isDirectory).filter(_.getName.matches("\\.js$")).map{f =>
         f.absolutePath.replace(dir.getAbsolutePath, "") -> f.lastModified
       }.toMap
   }
